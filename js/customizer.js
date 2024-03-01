@@ -19,7 +19,11 @@
 			$( '.site-description' ).text( to );
 		} );
 	} );
-
+	wp.customize( 'blogdescription', function( value ) {
+		value.bind( function( to ) {
+			$( '.site-description2' ).text( to );
+		} );
+	} );
 	// Header text color.
 	wp.customize( 'header_textcolor', function( value ) {
 		value.bind( function( to ) {

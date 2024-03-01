@@ -357,7 +357,32 @@ export default class Admin_CT_Custom {
             } else if (formElementToSubmit === 'social') {
                 console.log('grrr');
                 this.validateForm({ formIdSelector })
-                return
+                if (this.validateForm({ formIdSelector }).length === 0) {
+
+                    let form = document.querySelector(formIdSelector)
+                    let socialNerworks = JSON.parse(document.querySelector(formIdSelector).dataset.socialNetworks)
+
+                    let socialNerworkItem = {
+                        name: form.elements['name'].value,
+                        url: form.elements['url'].value,
+                        social_icon: form.elements['social_icon'].value,
+                        social_icon_type: document.querySelector('#socialNetworkIcon').dataset.type,
+                        size: form.elements['size'].value + 'px',
+                        background: form.elements['background'].value,
+                        color: form.elements['color'].value,
+                        border_radius: form['border_radius'].value + '%',
+                        padding: form.elements['padding'].value + 'px',
+                        custom_class: form.elements['custom_class'].value,
+                        custom_css: form.elements['custom_css'].value,
+                    }
+                    socialNerworks.push(socialNerworkItem)
+                    console.log(socialNerworks);
+                    input = JSON.stringify(socialNerworks)
+
+                } else {
+                    return
+                }
+
             } else {
                 input = document.querySelector(formIdSelector).elements[formElementToSubmit].value;
             }
@@ -442,6 +467,7 @@ export default class Admin_CT_Custom {
                     input.style.border = '1px solid red'
                     input.closest('.inputParrent').style.boxShadow = '0 0 0 1px red'
                     document.querySelector(`${formIdSelector} input[type="submit"]`).disabled = true
+                    errors.push(input.name)
                     Toastify({
                         text: `Input <b class="text-lg">${input.name}</b> is required`,
                         duration: 5000,
@@ -464,7 +490,8 @@ export default class Admin_CT_Custom {
             }
         })
 
-
+        return errors
     }
+
 
 }

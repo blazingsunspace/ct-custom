@@ -1,7 +1,12 @@
 <?php
+require 'vendor/autoload.php';
+require 'core/admin_ajax_trait.php';
+
+use Smarty\Smarty;
+
 
 /**
- * CT Custom functions and definitions
+ * BS Theme functions and definitions
  *
  * @link https://developer.wordpress.org/themes/basics/theme-functions/
  *
@@ -12,14 +17,21 @@ if (!defined('ABSPATH')) {
 	exit;
 }
 
-if (!class_exists('CT_Custom')) {
+if (!class_exists('BS_Custom')) {
 
-	class CT_Custom
+	class BS_Custom
 	{
+		use AdminAjaxTrait;
+		private $theme_directory;
+		public $smarty;
+
 		public function __construct()
 		{
-			$this->define_constants();
 
+
+			$this->theme_directory = get_template_directory_uri();
+			$this->define_constants();
+			$this->init_smarty();
 			if (!function_exists('ct_custom_setup')) {
 				add_action('after_setup_theme', [$this, 'ct_custom_setup'], 0);
 			}
@@ -36,8 +48,12 @@ if (!class_exists('CT_Custom')) {
 				add_action('wp_ajax_admin_upload_logo_image', [$this, 'admin_upload_logo_image'], 100, 0);
 
 				add_action('wp_ajax_admin_add_address', [$this, 'admin_add_address'], 100, 0);
+				add_action('wp_ajax_admin_add_social_nerworks', [$this, 'admin_add_social_nerworks'], 100, 0);
 			}
 
+			add_action('admin_menu', [$this, 'myprefix_register_options_page'], 100, 0);
+
+			add_action('admin_enqueue_scripts', [$this, 'dashicons_picker_scripts'], 100, 0);
 
 			/**
 			 * Implement the Custom Header feature.
@@ -58,7 +74,7 @@ if (!class_exists('CT_Custom')) {
 			 * Customizer additions.
 			 */
 			require get_template_directory() . '/inc/customizer.php';
-
+			require get_template_directory() . '/inc/customizer_homepage.php';
 			/**
 			 * Load Jetpack compatibility file.
 			 */
@@ -72,7 +88,6 @@ if (!class_exists('CT_Custom')) {
 			if (class_exists('WooCommerce')) {
 				require get_template_directory() . '/inc/woocommerce.php';
 			}
-
 			add_filter('script_loader_tag', function ($tag, $handle, $src) {
 
 				switch ($handle) {
@@ -87,129 +102,72 @@ if (!class_exists('CT_Custom')) {
 			}, 10, 3);
 		}
 
-
-		public function admin_upload_logo_image()
+		public function dashicons_picker_scripts()
 		{
 
-			if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'admin_add_logo_image_nonce')) {
-				wp_send_json_error('invalid nonce fax');
-			}
 
-			if (isset($_POST['id'])) {
 
-				if (!$this->option_exists('logo_image')) {
-
-					add_option('logo_image', $_POST['id'], '', 'yes');
-				} else {
-
-					update_option('logo_image', $_POST['id']);
-				}
-
-				$image = wp_get_attachment_image($_POST['id'], 'medium', false, array('class' => 'ml-auto text-2xl max-h-[128px] w-auto'));
-
-				$data = array(
-					'image'    => $image,
-				);
-
-				wp_send_json_success($data);
-			} else {
-				wp_send_json_error();
-			}
+			wp_enqueue_style('dashicons-picker',  $this->theme_directory . '/assets/css/dashicons-picker.css', array('dashicons'), '1.0', false);
+			wp_enqueue_script('dashicons-picker', $this->theme_directory . '/assets/js/dashicons-picker.js',   array('jquery'), '1.1', true);
 		}
 
 
-		public function option_exists($name, $site_wide = false)
+
+		/**
+		 * Add a new options page named "My Options".
+		 */
+		public function myprefix_register_options_page()
 		{
-			global $wpdb;
-			return $wpdb->query("SELECT * FROM " . ($site_wide ? $wpdb->base_prefix : $wpdb->prefix) . "options WHERE option_name ='$name' LIMIT 1");
+			add_menu_page(
+				'BS Theme Theme',
+				'BS Theme Theme',
+				'manage_options',
+				'ct_custom_theme',
+				[$this, 'ct_custom_theme_init_admin_page'],
+				'dashicons-image-flip-horizontal',
+				100
+			);
 		}
-		public function admin_add_phone()
+
+
+		/**
+		 * The "My Options" page html.
+		 */
+		public function ct_custom_theme_init_admin_page()
 		{
 
 
-			if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'admin_add_phone_nonce')) {
-				wp_send_json_error('invalid nonce phone');
-			}
 
 			if (!current_user_can('manage_options')) {
-				wp_send_json_error('invalid permissions');
+				return;
 			}
 
-			try {
-				if (isset($_POST['input'])  && !empty($_POST['input'])) {
-					if (!$this->option_exists('ct_custom_phone')) {
-						add_option('ct_custom_phone', $_POST['input'], '', 'yes');
-					} else {
-						update_option('ct_custom_phone', $_POST['input']);
-					}
+			$this->smarty->display('index.tpl');
 
-
-					wp_send_json_success(data: ['message' => '✅ Nonce is valid! phone'], options: 1);
-				}
-			} catch (\Throwable $th) {
-				wp_send_json_error(data: ['message' => $th->getMessage()], options: 1);
-			}
+			include_once get_template_directory() . '/template-admin/template-admin-main.php';
 		}
 
-		public function admin_add_address()
+
+
+		private function init_smarty()
 		{
 
 
+			$this->smarty = new Smarty();
+			$this->smarty->setTemplateDir(get_template_directory() . '/template-admin');
+			$this->smarty->setConfigDir(get_template_directory() . '/config');
+			$this->smarty->setCompileDir(get_template_directory() . '/compile');
+			$this->smarty->setCacheDir(get_template_directory() . '/cache');
 
-			if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'admin_add_address_nonce')) {
-				wp_send_json_error('invalid nonce fax');
-			}
+			/* $this->smarty->testInstall(); */
+			$this->smarty->assign('name', 'Ned');
+			/* $this->smarty->compileAllTemplates('.tpl',true); */
+			$this->smarty->setCaching(Smarty::CACHING_LIFETIME_SAVED);
+			/* $this->smarty->setCompileCheck(Smarty::COMPILECHECK_OFF); */
+			$this->smarty->setCacheLifetime(5000);
 
-			if (!current_user_can('manage_options')) {
-				wp_send_json_error('invalid permissions');
-			}
-
-			try {
-				if (isset($_POST['input'])  && !empty($_POST['input'])) {
-					/* $jsonObject = json_decode(base64_decode($_POST['input'])); */
-
-					if (!$this->option_exists('ct_custom_address')) {
-						add_option('ct_custom_address', $_POST['input'], '', 'yes');
-					} else {
-						update_option('ct_custom_address', $_POST['input']);
-					}
-
-
-					wp_send_json_success(data: ['message' => '✅ Nonce is valid! address'], options: 1);
-				}
-			} catch (\Throwable $th) {
-				wp_send_json_error(data: ['message' => $th->getMessage()], options: 1);
-			}
+			$this->smarty->configLoad('main_config.ini', 'Customer');
 		}
-
-		public function admin_add_fax()
-		{
-
-
-			if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'admin_add_fax_nonce')) {
-				wp_send_json_error('invalid nonce fax');
-			}
-
-			if (!current_user_can('manage_options')) {
-				wp_send_json_error('invalid permissions');
-			}
-
-			try {
-				if (isset($_POST['input'])  && !empty($_POST['input'])) {
-					if (!$this->option_exists('ct_custom_fax')) {
-						add_option('ct_custom_fax', $_POST['input'], '', 'yes');
-					} else {
-						update_option('ct_custom_fax', $_POST['input']);
-					}
-
-
-					wp_send_json_success(data: ['message' => '✅ Nonce is valid! fax'], options: 1);
-				}
-			} catch (\Throwable $th) {
-				wp_send_json_error(data: ['message' => $th->getMessage()], options: 1);
-			}
-		}
-
 		/**
 		 * define_constants is used for difining needed contstants for plugin
 		 */
@@ -219,7 +177,7 @@ if (!class_exists('CT_Custom')) {
 			define('CT_CUSTOM_URL', plugin_dir_url(__FILE__));
 			define('CT_CUSTOM_VERSION', '201512154');
 			define('CT_CUSTOM_TABLE_VERSION', 1);
-			define('CT_CUSTOM_NAME', 'CT_Custom');
+			define('CT_CUSTOM_NAME', 'BS_Custom');
 			define('CT_CUSTOM_NAME_PRETTY', __('A/B Split Traffic Testing', 'split_traffic_a_b_testing'));
 			define('CT_CUSTOM_NAME_PRETTY_2', __('A/B Split Testing', 'split_traffic_a_b_testing'));
 		}
@@ -236,13 +194,14 @@ if (!class_exists('CT_Custom')) {
 			/*
 			 * Make theme available for translation.
 			 * Translations can be filed in the /languages/ directory.
-			 * If you're building a theme based on CT Custom, use a find and replace
+			 * If you're building a theme based on BS Theme, use a find and replace
 			 * to change 'ct-custom' to the name of your theme in all the template files.
 			 */
 			load_theme_textdomain('ct-custom', get_template_directory() . '/languages');
 
+
 			// Add default posts and comments RSS feed links to head.
-			add_theme_support('automatic-feed-links');
+			/* add_theme_support('automatic-feed-links'); */
 
 			/*
 			 * Let WordPress manage the document title.
@@ -337,9 +296,9 @@ if (!class_exists('CT_Custom')) {
 		{
 			wp_enqueue_style('ct-custom-style', get_stylesheet_uri());
 
-			wp_enqueue_script('ct-custom-navigation', get_template_directory_uri() . '/js/navigation.js', array(), CT_CUSTOM_VERSION, true);
+			wp_enqueue_script('ct-custom-navigation', $this->theme_directory . '/js/navigation.js', array(), $this->smarty->getConfigVars('CT_CUSTOM_VERSION',), true);
 
-			wp_enqueue_script('ct-custom-skip-link-focus-fix', get_template_directory_uri() . '/js/skip-link-focus-fix.js', array(), CT_CUSTOM_VERSION, true);
+			wp_enqueue_script('ct-custom-skip-link-focus-fix', $this->theme_directory . '/js/skip-link-focus-fix.js', array(), $this->smarty->getConfigVars('CT_CUSTOM_VERSION',), true);
 
 			if (is_singular() && comments_open() && get_option('thread_comments')) {
 				wp_enqueue_script('comment-reply');
@@ -353,15 +312,15 @@ if (!class_exists('CT_Custom')) {
 			/* 	wp_enqueue_script('myprefix_script', $js_path, array('jquery'), '0.1'); */
 			if (is_object($currentScreen) && $currentScreen->id === 'toplevel_page_ct_custom_theme') {
 				wp_enqueue_media();
-				$js_path = get_template_directory_uri() . '/assets/js/Admin_App.js';
-				wp_register_script('admin-' . CT_CUSTOM_NAME . '-script', $js_path, [], CT_CUSTOM_VERSION);
+
+				wp_register_script('admin-' . CT_CUSTOM_NAME . '-script', $this->theme_directory . '/assets/js/Admin_App.js', [], $this->smarty->getConfigVars('CT_CUSTOM_VERSION',));
 				wp_enqueue_script('admin-' . CT_CUSTOM_NAME . '-script');
 
-				$stylesheet_path =  get_template_directory_uri() . '/assets/css/admin-styles.css';
-				wp_register_style('admin-' . CT_CUSTOM_NAME . '-styles', $stylesheet_path, [], CT_CUSTOM_VERSION, 'all');
+
+				wp_register_style('admin-' . CT_CUSTOM_NAME . '-styles', $this->theme_directory . '/assets/css/admin-styles.css', [], $this->smarty->getConfigVars('CT_CUSTOM_VERSION',), 'all');
 				wp_enqueue_style('admin-' . CT_CUSTOM_NAME . '-styles');
 
-				wp_register_script('tailwindcss', 'https://cdn.tailwindcss.com', [], CT_CUSTOM_VERSION);
+				wp_register_script('tailwindcss', 'https://cdn.tailwindcss.com', [], $this->smarty->getConfigVars('CT_CUSTOM_VERSION',));
 				wp_enqueue_script('tailwindcss');
 			}
 		}
@@ -374,51 +333,18 @@ if (!class_exists('CT_Custom')) {
 			/* 	wp_enqueue_script('myprefix_script', $js_path, array('jquery'), '0.1'); */
 			if (is_object($currentScreen) && $currentScreen->id === 'toplevel_page_ct_custom_theme') {
 
-				$js_path = get_template_directory_uri() . '/assets/js/toastify-js.js';
-				wp_register_script('admin-toastify-script', $js_path, [], CT_CUSTOM_VERSION);
+
+				wp_register_script('admin-toastify-script', $this->theme_directory . '/assets/js/toastify-js.js', [], $this->smarty->getConfigVars('CT_CUSTOM_VERSION',));
 				wp_enqueue_script('admin-toastify-script');
 
-				$stylesheet_path =  get_template_directory_uri() . '/assets/css/toastify.min.css';
-				wp_register_style('admin-toastify-styles', $stylesheet_path, [], CT_CUSTOM_VERSION, 'all');
+
+				wp_register_style('admin-toastify-styles', $this->theme_directory . '/assets/css/toastify.min.css', [], $this->smarty->getConfigVars('CT_CUSTOM_VERSION',), 'all');
 				wp_enqueue_style('admin-toastify-styles');
 			}
 		}
 	}
 }
 
-/**
- * Add a new options page named "My Options".
- */
-function myprefix_register_options_page()
-{
-	add_menu_page(
-		'CT Custom Theme',
-		'CT Custom Theme',
-		'manage_options',
-		'ct_custom_theme',
-		'ct_custom_theme_init_admin_page',
-		'dashicons-image-flip-horizontal',
-		100
-	);
-}
-add_action('admin_menu', 'myprefix_register_options_page');
-
-/**
- * The "My Options" page html.
- */
-function ct_custom_theme_init_admin_page()
-{
-
-
-
-	if (!current_user_can('manage_options')) {
-		return;
-	}
-
-
-
-	include_once get_template_directory() . '/template-admin/template-admin-main.php';
-}
 
 add_action('deleted_theme', function ($stylesheet, $deleted): void {
 
@@ -431,18 +357,19 @@ function mytheme_setup_options(): void
 {
 	$active_theme = wp_get_theme();
 
-	if ($active_theme == 'CT Custom') {
+	if ($active_theme == 'BS Theme') {
 
 		add_option('aaa', '255', '', 'yes');
 	}
 }
 
-if (class_exists('CT_Custom')) {
+if (class_exists('BS_Custom')) {
 
 
 
-	// Instantiate the 'CT_Custom' class to initialize the theme functions
-	$CT_Custom = new CT_Custom();
+	// Instantiate the 'BS_Custom' class to initialize the theme functions
+
+	new BS_Custom();
 }
 
 define('ALLOW_UNFILTERED_UPLOADS', true);
@@ -452,15 +379,82 @@ function cc_mime_types($mimes)
 	return $mimes;
 }
 add_filter('upload_mimes', 'cc_mime_types');
+/* function custom_theme_customizer($wp_customize)
+{
+	// Add a section for logo settings
+	$wp_customize->add_section('custom_logo_section', array(
+		'title'    => __('Logo', 'your-theme'),
+		'priority' => 30,
+	));
+
+	// Add a setting for the logo
+	$wp_customize->add_setting('custom_logo', array(
+		'capability' => 'edit_theme_options',
+	));
+
+	// Add a control for uploading the logo
+	$wp_customize->add_control(new WP_Customize_Cropped_Image_Control($wp_customize, 'custom_logo', array(
+		'label'    => __('Upload Logo', 'your-theme'),
+		'section'  => 'custom_logo_section',
+		'settings' => 'custom_logo',
+		'width'    => 300,
+		'height'   => 100,
+	)));
+}
+
+add_action('customize_register', 'custom_theme_customizer'); */
 
 
 
-function dashicons_picker_scripts()
+function sitepoint_customize_register($wp_customize)
 {
 
+	$wp_customize->add_section("ads", array(
+		"title" => __("Advertising", "customizer_ads_sections"),
+		"priority" => 30,
+	));
 
+	$wp_customize->add_setting("ads_code", array(
+		"default" => "",
+		"transport" => "postMessage",
+	));
 
-	wp_enqueue_style('dashicons-picker',  get_template_directory_uri() . '/assets/css/dashicons-picker.css', array('dashicons'), '1.0', false);
-	wp_enqueue_script('dashicons-picker', get_template_directory_uri() . '/assets/js/dashicons-picker.js',   array('jquery'), '1.1', true);
+	$wp_customize->add_control(new WP_Customize_Control(
+		$wp_customize,
+		"ads_code",
+		array(
+			"label" => __("Enter Ads Code", "customizer_ads_code_label"),
+			"section" => "ads",
+			"settings" => "ads_code",
+			"type" => "textarea",
+		)
+	));
 }
-add_action('admin_enqueue_scripts', 'dashicons_picker_scripts');
+
+add_action("customize_register", "sitepoint_customize_register");
+
+function custom_theme_customizer($wp_customize)
+{
+	$wp_customize->add_section('custom_logo_section', array(
+		'title' => __('Custom Logo', 'your_theme_domain'),
+		'priority' => 30,
+	));
+}
+add_action('customize_register', 'custom_theme_customizer');
+
+// Step 2: Add the custom setting
+function custom_logo_setting($wp_customize)
+{
+	$wp_customize->add_setting('custom_logo', array(
+		'default' => '',
+		'sanitize_callback' => 'esc_url_raw',
+	));
+	$wp_customize->add_control(new WP_Customize_Image_Control($wp_customize, 'custom_logo', array(
+		'label' => __('Upload a Custom Logo', 'your_theme_domain'),
+		'section' => 'custom_logo_section',
+		'settings' => 'custom_logo',
+	)));
+}
+add_action('customize_register', 'custom_logo_setting');
+
+$custom_variable3 = 'This is a custom variable';

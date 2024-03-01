@@ -7,7 +7,7 @@
  * @package CT_Custom
  */
 
-get_header();
+ get_header();
 ?>
 
 	<div id="primary" class="content-area">

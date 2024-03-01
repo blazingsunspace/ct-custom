@@ -1,0 +1,5 @@
+{
+    "require": {
+        "smarty/smarty": "v5.0.0-rc2"
+    }
+}

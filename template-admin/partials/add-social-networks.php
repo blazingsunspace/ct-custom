@@ -1,7 +1,50 @@
 <div class="p-4">
 
     <h2 class="text-2xl mb-4"> Add social networks </h2>
-    <form id="add-social-networks-form" method="post" class="flex flex-col gap-4 bg-blue-500 text-white p-4">
+
+    <?php
+    $socialNetworks2 =  get_option('ct_custom_social_networks') ?  get_option('ct_custom_social_networks') :  '[]';
+
+    $socialNetworks = json_decode(stripslashes($socialNetworks2));
+
+    $socialNetworksOutputDiv = '';
+    if (count($socialNetworks) > 0) {
+        $socialNetworksOutputDiv .= '<ol class="flex flex-col">';
+        $custom_css ='';
+        foreach ($socialNetworks as $key => $socialNetwork) {
+            $socialNetworksOutputDiv .= '<li class="p-4 flex border-indigo-600 border-b-4">' . ($key + 1) . '. ';
+            $socialIcon = '';
+            if ($socialNetwork->social_icon_type === 'icon') {
+                $socialIconStyle = 'style="font-size: ' .  $socialNetwork->size . '; color:' .  $socialNetwork->color . '; border-radius: ' .  $socialNetwork->border_radius . ';"';
+                $socialIcon = '<span class="p-0 m-0 flex items-center justify-center text-right dashicons ' . $socialNetwork->social_icon . '" ' . $socialIconStyle . '></span>';
+                $socialATagStyle = 'style="height: ' .  $socialNetwork->size . '; width: ' .  $socialNetwork->size . '; background-color: ' .  $socialNetwork->background . '; border-radius: ' .  $socialNetwork->border_radius . '; padding: ' .  $socialNetwork->padding . ';"';
+            } else if ($socialNetwork->social_icon_type === 'image') {
+                $socialIcon = '<img src="' . $socialNetwork->social_icon . ' />';
+            }
+
+            $socialNetworksOutputDiv .= '
+        
+                       <a class="' . $socialNetwork->custom_class . ' flex items-center justify-center overflow-hidden ml-auto w-auto text-right box-content" href="' . $socialNetwork->url . '" title="' . $socialNetwork->name . '" ' . $socialATagStyle . '>
+                        
+                            ' . $socialIcon . '    
+
+                       </a>
+                    ';
+            $socialNetworksOutputDiv .= '</li>';
+            $custom_css .= $socialNetwork->custom_css;
+        }
+
+        $socialNetworksOutputDiv .= '</ol>';
+        $custom_css = '<style>'. $custom_css. '</style>';
+    }
+
+
+    echo $socialNetworksOutputDiv . $custom_css;
+    ?>
+
+
+
+    <form id="add-social-networks-form" method="post" class="flex flex-col gap-4 bg-blue-500 text-white p-4" data-social-networks='<?php echo $socialNetworks2 ?>'>
         <div class="inputParrent w-full flex">
             <label for="name" class="min-w-[140px]">Name</label>
             <input type="text" name="name" id="name" class="grow" value="" required />
